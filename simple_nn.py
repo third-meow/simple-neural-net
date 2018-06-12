@@ -12,6 +12,9 @@ def avrg(in_list):
         total += i
     return total / len(in_list)
 
+def to_column(in_list, col_num):
+    return[row[col_num] for row in in_list]
+
 
 class Layer():
     #neuron_n is how meny neurons in Layer
@@ -80,7 +83,10 @@ class Layer():
 
 
 class Network():
-    def __init__(self, config):
+    def __init__(self, config, trainrate=0.5):
+        #training rate (how fast the network 'learns')
+        self.train_rate = trainrate
+        
         #list of Layers
         self.layers = []
 
@@ -99,11 +105,13 @@ class Network():
             self.calc_costs(training_data[r % len(training_data)],
             training_labels[r % len(training_data)])
 
-            #adjust weights
-            for l in range(self.layers):
-                for n in range(self.layers[l].weights):
-                    for w in range(self.layers[l].weights[n]):
-                        '''change weights'''
+            #adjust weights for all layers but first (first has no previous layer)
+            for l in range(1, len(self.layers)):
+                for n in range(len(self.layers[l].weights)):
+                    for w in range(len(self.layers[l].weights[n])):
+                        #weight += relvevent cost * trainging rate
+                        self.layers[l].weights[n][w] += (self.layers[l].costs[n] 
+                        * self.train_rate)
             
 
 
@@ -127,27 +135,35 @@ class Network():
         
         #find last layer's costs against correct output
         for n in range(len(self.layers[-1].costs)):
-            self.layers[2].costs[n] = ((correct_output[n] - self.layers[2].acts[n]) ** 2)            
+            self.layers[-1].costs[n] = ((correct_output[n] - self.layers[-1].acts[n]) ** 2)            
         
         #calc costs of other layers
-        for l in range(len(self.layers) - 2,0):
-            for n in range(len(self.layers[l].costs)):
-                self.layers[l].costs[n] = ((avrg(self.layers[l + 1].weights[n]) 
-                    - self.layers[2].acts[n]) ** 2)            
-        
-        for l in self.layers:
-            print(l.weights)
+        for l, e in reversed(list(enumerate(self.layers))):
+            if l < len(self.layers) - 1:
+                print(l)
+                for n in range(len(e.costs)):
+                    self.layers[l].costs[n] = (
+                    (avrg(to_column(self.layers[l+1].weights,n)) - self.layers[l].acts[n]) ** 2)            
     
+
     #run nework based on input stimuli
     def run(self, input_stimuli, raw=False):
         #set stimuli Layer to input stimuli
         self.layers[0].set(input_stimuli)
+        #print('.')
+        #print(self.layers[0].acts)
 
         #run layers[1] on the stimuli layer     #
         self.layers[1].run(self.layers[0])      # replace with for loop
+        #print('.')
+        #print(self.layers[1].acts)
+        #print(self.layers[1].costs)
                                                 # in future
         #run layers[2] on layers[0]             #
         self.layers[2].run(self.layers[1])      
+        print('.')
+        #print(self.layers[2].acts)
+        #print(self.layers[2].costs)
 
         if raw == False:
             #find largest activation in output layer
@@ -200,4 +216,4 @@ training_input_labels = [0,1,2,3,2,1,0,1,2,3,2,1,0,1,2,3,2,1,0,1]
 #create neural network
 my_net = Network([4,4,4])
 my_net.train(training_input, training_input_labels)
-
+my_net.run([0,0,1,0], raw=True)
