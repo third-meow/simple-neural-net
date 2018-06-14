@@ -1,5 +1,4 @@
 import numpy as np
-import random
 
 def sigmoid(x, derive=False):
     if derive:
@@ -44,7 +43,7 @@ class Layer():
             self.weights.append([])
             #set weights in sub list
             for w in range(prv_neuron_n):
-                self.weights[n].append(random.random())
+                self.weights[n].append(1)
     
 
     #allow network to set values in layer
@@ -84,13 +83,10 @@ class Layer():
 
 
 class Network():
-    def __init__(self, config, trainrate=0.005):
+    def __init__(self, config, trainrate=0.5):
         #training rate (how fast the network 'learns')
         self.train_rate = trainrate
         
-        #set seed
-        random.seed(1357)
-
         #list of Layers
         self.layers = []
 
@@ -103,54 +99,63 @@ class Network():
 
 
     #training network on training data and labels
-    def train(self, training_data, training_labels, repeats, vbos=False):
-        
-        for o in range(repeats):
-            actual_output = self.run(training_data[o % len(training_data)], raw=True)
+    def train(self, training_data, training_labels, repeats=1000, vbos=False):
+        for r in range(repeats):
+            #calculate the costs
+            self.calc_costs(training_data[r % len(training_data)],
+            training_labels[r % len(training_data)])
 
-            if training_labels[o % len(training_labels)] == 0:
-                correct_output = [1,0]
-            else:
-                correct_output = [0,1]
+            #adjust weights for all layers but first (first has no previous layer)
+            for l in range(1, len(self.layers)):
+                for n in range(len(self.layers[l].weights)):
+                    for w in range(len(self.layers[l].weights[n])):
+                        #weight += relvevent cost * trainging rate
+                        self.layers[l].weights[n][w] += (self.layers[l].costs[n] 
+                        * self.train_rate)
             
+
+
+    #calc network's cost
+    def calc_costs(self, training_data, training_label):
+        #set costs to 0
+        for l in self.layers:
+            for n in l.costs:
+                n = 0.0
+
+        #get actual output by running network in raw mode
+        actual_output = self.run(training_data, raw=True)
         
-            if vbos and o == (repeats - 1):
-                print('\nTRAIN DATA, LABEL:')
-                print(training_data[1])
-                print(training_labels[1])
+        #create the correct output based on label
+        correct_output = []
+        for o in range(len(actual_output)):
+            if o != training_label:
+                correct_output.append(0.0)
+            else:
+                correct_output.append(1.0)
         
-                print('\nOUTPUT, CORRECT:')
-                print(actual_output)
-                print(correct_output)
+        #find last layer's costs against correct output
+        for n in range(len(self.layers[-1].costs)):
+            self.layers[-1].costs[n] = ((correct_output[n] - self.layers[-1].acts[n]) ** 2)            
         
-            for n in range(len(self.layers[-1].costs)):
-                self.layers[-1].costs[n] = (correct_output[n] 
-                    - actual_output[n])
-
-            for c in range(len(self.layers[-1].costs)):
-                for w in range(len(self.layers[-1].weights[c])):
-                    self.layers[-1].weights[c][w] += (self.layers[-1].costs[c] 
-                        * self.layers[0].acts[w] * self.train_rate)
-
-            if vbos and o == (repeats - 1):
-                print('\nL1 COSTS(AFTER)')
-                print(self.layers[-1].costs)
-
-                print('\nL1 WEIGHTS(AFTER)')
-                print(self.layers[-1].weights)        
-
-                print('\nL1 N0 WEIGHTS(SUM), L1 N1 WEIGHTS(SUM)')
-                print(sum(self.layers[-1].weights[0]))
-                print(sum(self.layers[-1].weights[1]))
-
+        #calc costs of other layers
+        for l, e in reversed(list(enumerate(self.layers))):
+            if l < len(self.layers) - 1:
+                for n in range(len(e.costs)):
+                    self.layers[l].costs[n] = (
+                    (avrg(to_column(self.layers[l+1].weights,n)) - self.layers[l].acts[n]) ** 2)            
+    
 
     #run nework based on input stimuli
     def run(self, input_stimuli, raw=False):
         #set stimuli Layer to input stimuli
         self.layers[0].set(input_stimuli)
         
-        #run layers[1] on the stimuli layer
-        self.layers[1].run(self.layers[0])
+        #run layers[1] on the stimuli layer     #
+        self.layers[1].run(self.layers[0])      # replace with for loop
+                                                # in future
+        #run layers[2] on layers[0]             #
+        self.layers[2].run(self.layers[1])      
+        print('.')
 
         if raw == False:
             #find largest activation in output layer
@@ -173,39 +178,34 @@ class Network():
 
 training_input = [
         [0,0,0,1],
+        [0,0,1,0],
+        [0,1,0,0],
         [1,0,0,0],
         [0,1,0,0],
         [0,0,1,0],
         [0,0,0,1],
-        [1,0,0,0],
         [0,0,1,0],
         [0,1,0,0],
         [1,0,0,0],
-        [0,0,0,1],
-        [0,1,0,0],
-        [0,1,0,0],
-        [0,0,0,1],
-        [0,0,0,1],
         [0,1,0,0],
         [0,0,1,0],
         [0,0,0,1],
+        [0,0,1,0],
+        [0,1,0,0],
         [1,0,0,0],
         [0,1,0,0],
+        [0,0,1,0],
+        [0,0,0,1],
         [0,0,1,0],
         ]
 
 
-training_input_labels = [1,1,0,0,1,1,0,0,1,1,0,0,1,1,0,0,1,1,0,0]
+training_input_labels = [0,1,2,3,2,1,0,1,2,3,2,1,0,1,2,3,2,1,0,1]
+
 
 
 
 #create neural network
-my_net = Network([4,2])
-my_net.train(training_input, training_input_labels, 100000, vbos=True)
-
-print('\n\n================================================================')
-print('OUTPUT OF [0,0,1,0] : '+str(my_net.run([0,0,1,0])))
-print('OUTPUT OF [0,0,0,1] : '+str(my_net.run([0,0,0,1])))
-print('OUTPUT OF [0,0,0,1] : '+str(my_net.run([0,0,0,1])))
-print('OUTPUT OF [0,1,0,0] : '+str(my_net.run([0,1,0,0])))
-print('OUTPUT OF [1,0,0,0] : '+str(my_net.run([1,0,0,0])))
+my_net = Network([4,4,4])
+my_net.train(training_input, training_input_labels)
+my_net.run([0,0,1,0], raw=True)

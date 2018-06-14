@@ -84,7 +84,7 @@ class Layer():
 
 
 class Network():
-    def __init__(self, config, trainrate=0.005):
+    def __init__(self, config, trainrate=0.0005):
         #training rate (how fast the network 'learns')
         self.train_rate = trainrate
         
@@ -104,6 +104,19 @@ class Network():
 
     #training network on training data and labels
     def train(self, training_data, training_labels, repeats, vbos=False):
+        #if vbos:
+        #    print('\nL2 COSTS(BEFORE)')
+        #    print(self.layers[2].costs)
+        #   
+        #    print('\nL2 WEIGHTS(BEFORE)')
+        #    print(self.layers[2].weights)        
+        #
+        #    print('\nL1 COSTS(BEFORE)')
+        #    print(self.layers[1].costs)
+        #
+        #    print('\nL1 WEIGHTS(BEFORE)')
+        #    print(self.layers[1].weights)
+        
         
         for o in range(repeats):
             actual_output = self.run(training_data[o % len(training_data)], raw=True)
@@ -123,25 +136,37 @@ class Network():
                 print(actual_output)
                 print(correct_output)
         
-            for n in range(len(self.layers[-1].costs)):
-                self.layers[-1].costs[n] = (correct_output[n] 
+            for n in range(len(self.layers[2].costs)):
+                self.layers[2].costs[n] = (correct_output[n] 
                     - actual_output[n])
 
-            for c in range(len(self.layers[-1].costs)):
-                for w in range(len(self.layers[-1].weights[c])):
-                    self.layers[-1].weights[c][w] += (self.layers[-1].costs[c] 
+            for c in range(len(self.layers[2].costs)):
+                for w in range(len(self.layers[2].weights[c])):
+                    self.layers[2].weights[c][w] += (self.layers[2].costs[c] 
+                        * self.layers[1].acts[w] * self.train_rate)
+
+            if vbos and o == (repeats - 1):
+                print('\nL2 COSTS(AFTER)')
+                print(self.layers[2].costs)
+
+                print('\nL2 WEIGHTS(AFTER)')
+                print(self.layers[2].weights)        
+
+            for n in range(len(self.layers[1].costs)):
+                self.layers[1].costs[n] = (
+                    avrg(to_column(self.layers[2].weights, n)) 
+                    - self.layers[1].acts[n])
+
+            for c in range(len(self.layers[1].costs)):
+                for w in range(len(self.layers[1].weights[c])):
+                    self.layers[1].weights[c][w] += (self.layers[1].costs[c] 
                         * self.layers[0].acts[w] * self.train_rate)
 
             if vbos and o == (repeats - 1):
                 print('\nL1 COSTS(AFTER)')
-                print(self.layers[-1].costs)
-
+                print(self.layers[1].costs)
                 print('\nL1 WEIGHTS(AFTER)')
-                print(self.layers[-1].weights)        
-
-                print('\nL1 N0 WEIGHTS(SUM), L1 N1 WEIGHTS(SUM)')
-                print(sum(self.layers[-1].weights[0]))
-                print(sum(self.layers[-1].weights[1]))
+                print(self.layers[1].weights)
 
 
     #run nework based on input stimuli
@@ -149,8 +174,11 @@ class Network():
         #set stimuli Layer to input stimuli
         self.layers[0].set(input_stimuli)
         
-        #run layers[1] on the stimuli layer
-        self.layers[1].run(self.layers[0])
+        #run layers[1] on the stimuli layer     #
+        self.layers[1].run(self.layers[0])      # replace with for loop
+                                                # in future
+        #run layers[2] on layers[0]             #
+        self.layers[2].run(self.layers[1])      
 
         if raw == False:
             #find largest activation in output layer
@@ -173,39 +201,39 @@ class Network():
 
 training_input = [
         [0,0,0,1],
+        [0,0,1,0],
+        [0,1,0,0],
         [1,0,0,0],
         [0,1,0,0],
         [0,0,1,0],
         [0,0,0,1],
-        [1,0,0,0],
         [0,0,1,0],
         [0,1,0,0],
         [1,0,0,0],
-        [0,0,0,1],
-        [0,1,0,0],
-        [0,1,0,0],
-        [0,0,0,1],
-        [0,0,0,1],
         [0,1,0,0],
         [0,0,1,0],
         [0,0,0,1],
+        [0,0,1,0],
+        [0,1,0,0],
         [1,0,0,0],
         [0,1,0,0],
+        [0,0,1,0],
+        [0,0,0,1],
         [0,0,1,0],
         ]
 
 
-training_input_labels = [1,1,0,0,1,1,0,0,1,1,0,0,1,1,0,0,1,1,0,0]
+training_input_labels = [1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,1,0]
 
 
 
 #create neural network
-my_net = Network([4,2])
+my_net = Network([4,4,2])
 my_net.train(training_input, training_input_labels, 100000, vbos=True)
 
 print('\n\n================================================================')
-print('OUTPUT OF [0,0,1,0] : '+str(my_net.run([0,0,1,0])))
-print('OUTPUT OF [0,0,0,1] : '+str(my_net.run([0,0,0,1])))
-print('OUTPUT OF [0,0,0,1] : '+str(my_net.run([0,0,0,1])))
-print('OUTPUT OF [0,1,0,0] : '+str(my_net.run([0,1,0,0])))
-print('OUTPUT OF [1,0,0,0] : '+str(my_net.run([1,0,0,0])))
+print('OUTPUT OF [0,0,1,0] : '+str(my_net.run([0,0,1,0], raw=True)))
+print('OUTPUT OF [0,0,0,1] : '+str(my_net.run([0,0,0,1], raw=True)))
+print('OUTPUT OF [0,0,0,1] : '+str(my_net.run([0,0,0,1], raw=True)))
+print('OUTPUT OF [0,1,0,0] : '+str(my_net.run([0,1,0,0], raw=True)))
+print('OUTPUT OF [1,0,0,0] : '+str(my_net.run([1,0,0,0], raw=True)))
