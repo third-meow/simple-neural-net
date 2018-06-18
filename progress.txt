@@ -1,0 +1,19 @@
+
+
+15-6-18 : 6 neuron net
+
+16-6-18 : reformate code
+
+17-6-18 : fully mod
+
+17-6-18 : save train data to a file
+
+17-6-18 : upgrade to 12 neruon net
+
+18-6-18 : unit test
+
+soon : do some reseach
+
+after : optimise with fancy calculus
+
+after : use proper tools

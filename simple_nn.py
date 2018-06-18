@@ -1,5 +1,6 @@
 import numpy as np
 import random
+import pickle
 
 def sigmoid(x, derive=False):
     if derive:
@@ -20,29 +21,22 @@ def to_column(in_list, col_num):
 class Layer():
     #neuron_n is how meny neurons in Layer
     def __init__(self, neuron_n, prv_neuron_n):
-        #list of activations
+        #list of activations, biases, costs and weights
         self.acts = []
-        
-        #list of biases
         self.biases = []
-
-        #2D list of weights
-        self.weights = []
-
-        #list of costs
         self.costs = []
+        self.weights = []
         
         #set inital activations, biases and weights
         for n in range(neuron_n):
-            #append 0 to acts, costs and biases
+            #all acts, costs and biases start at 0
             self.acts.append(0)
             self.costs.append(0)
             self.biases.append(0)
 
-
-            #append list of weights to self.weights
+            #append sub-list to weights
             self.weights.append([])
-            #set weights in sub list
+            #set weights in sub-list randomly
             for w in range(prv_neuron_n):
                 self.weights[n].append(random.random())
     
@@ -57,37 +51,29 @@ class Layer():
     def run(self, input_layer):
         #for every neuron in layer
         for n in range(len(self.acts)):
-            #reset act  to 0
+            #reset activation
             self.acts[n] = 0
             
             #for every neuron in input layer
             for i in range(len(input_layer.acts)):
-                #add input neuron's activation (times it's repective weight) 
-                #to local neuron
+                #add input neuron's activation (multiplyed by it's repective weight) 
                 self.acts[n] += input_layer.acts[i] * self.weights[n][i]
             
             #add repective bias
             self.acts[n] += self.biases[n]
             
-            #apply sigmoid to itself
+            #apply sigmoid
             self.acts[n] = sigmoid(self.acts[n])
 
 
-    #print reperestion of layer onto screen
-    def display(self):
-        for n in self.acts:
-            print('(',end='')
-            print(n, end='')
-            print(')   ',end='')
-
-
-
-
 class Network():
-    def __init__(self, config, trainrate=0.005):
+    def __init__(self, id_no, config, trainrate=0.005):
         #training rate (how fast the network 'learns')
         self.train_rate = trainrate
         
+        #network's id
+        self.id = id_no
+
         #set seed
         random.seed(1357)
 
@@ -104,44 +90,45 @@ class Network():
 
     #training network on training data and labels
     def train(self, training_data, training_labels, repeats, vbos=False):
-        
         for o in range(repeats):
-            actual_output = self.run(training_data[o % len(training_data)], raw=True)
-
-            if training_labels[o % len(training_labels)] == 0:
-                correct_output = [1,0]
-            else:
-                correct_output = [0,1]
+            #calculate costs accross network
+            self.calc_costs(training_data[o % len(training_data)], training_labels[o
+                % len(training_labels)])
             
-        
-            if vbos and o == (repeats - 1):
-                print('\nTRAIN DATA, LABEL:')
-                print(training_data[1])
-                print(training_labels[1])
-        
-                print('\nOUTPUT, CORRECT:')
-                print(actual_output)
-                print(correct_output)
-        
-            for n in range(len(self.layers[-1].costs)):
-                self.layers[-1].costs[n] = (correct_output[n] 
-                    - actual_output[n])
+            #apply costs to weights
+            for l in range(1, len(self.layers)):
+                for c in range(len(self.layers[l].costs)):
+                    for w in range(len(self.layers[l].weights[c])):
+                        self.layers[l].weights[c][w] += (self.layers[l].costs[c] 
+                            * self.layers[l-1].acts[w] * self.train_rate)
 
-            for c in range(len(self.layers[-1].costs)):
-                for w in range(len(self.layers[-1].weights[c])):
-                    self.layers[-1].weights[c][w] += (self.layers[-1].costs[c] 
-                        * self.layers[0].acts[w] * self.train_rate)
+    #calc costs
+    def calc_costs(self, training_set, label):
+        #get actual_output by runing network
+        actual_output = self.run(training_set, raw=True)
 
-            if vbos and o == (repeats - 1):
-                print('\nL1 COSTS(AFTER)')
-                print(self.layers[-1].costs)
+        #create a perfect last layer result from training label
+        correct_output = []
+        for n in range(len(self.layers[-1].acts)):
+            if n == label:
+                correct_output.append(1.0)
+            else:
+                correct_output.append(0.0)
 
-                print('\nL1 WEIGHTS(AFTER)')
-                print(self.layers[-1].weights)        
+        #find cost of last layer using correct_output
+        for n in range(len(self.layers[-1].costs)):
+            self.layers[-1].costs[n] = (correct_output[n] 
+                - actual_output[n])
 
-                print('\nL1 N0 WEIGHTS(SUM), L1 N1 WEIGHTS(SUM)')
-                print(sum(self.layers[-1].weights[0]))
-                print(sum(self.layers[-1].weights[1]))
+        #find cost of other layers
+        for l in reversed(range(len(self.layers)-1)):
+            for n in range(len(self.layers[l].costs)):
+                cost_count = 0
+                for c in range(len(self.layers[l+1].costs)):
+                    cost_count += (self.layers[l+1].costs[c]
+                    * self.layers[l+1].weights[c][n])
+                self.layers[l].costs[n] = cost_count
+            
 
 
     #run nework based on input stimuli
@@ -149,8 +136,9 @@ class Network():
         #set stimuli Layer to input stimuli
         self.layers[0].set(input_stimuli)
         
-        #run layers[1] on the stimuli layer
-        self.layers[1].run(self.layers[0])
+        for l in range(1,len(self.layers)):
+            #run layer on the previous layer
+            self.layers[l].run(self.layers[l-1])
 
         if raw == False:
             #find largest activation in output layer
@@ -159,53 +147,36 @@ class Network():
             #return index of largest activation in output layer
             return (self.layers[-1].acts.index(max_act))
         else:
+            #return the acts from last layer ('raw' output)
             return self.layers[-1].acts
 
 
-    #display representation of network
-    def display(self):
-        for l in self.layers:
-            l.display()
-            print('\n')
+    #save nerual network(as trained) to file
+    def save(self):
+        #create file name from self.id
+        save_str = 'saved_models/'+str(self.id)+'.p'
+        #create dict with data to be saved
+        save_data = {
+                    'layers' : self.layers,
+                    'id' : self.id,
+                    'train_rate' : self.train_rate
+                    }
+        #use pickle to save save_data
+        with open(save_str, 'wb') as file:
+            pickle.dump(save_data, file)
+        #return id 
+        return self.id
+
+    def load(self, save_id):
+        #create file name from input id
+        save_str = 'saved_models/'+str(save_id)+'.p'
+        #load save data
+        with open(save_str, 'rb') as file:
+            save_data = pickle.load(file)
+        #set id, layers and train_rate to the save data
+        self.id = save_data['id']
+        self.layers = save_data['layers']
+        self.train_rate = save_data['train_rate']
 
 
 
-
-training_input = [
-        [0,0,0,1],
-        [1,0,0,0],
-        [0,1,0,0],
-        [0,0,1,0],
-        [0,0,0,1],
-        [1,0,0,0],
-        [0,0,1,0],
-        [0,1,0,0],
-        [1,0,0,0],
-        [0,0,0,1],
-        [0,1,0,0],
-        [0,1,0,0],
-        [0,0,0,1],
-        [0,0,0,1],
-        [0,1,0,0],
-        [0,0,1,0],
-        [0,0,0,1],
-        [1,0,0,0],
-        [0,1,0,0],
-        [0,0,1,0],
-        ]
-
-
-training_input_labels = [1,1,0,0,1,1,0,0,1,1,0,0,1,1,0,0,1,1,0,0]
-
-
-
-#create neural network
-my_net = Network([4,2])
-my_net.train(training_input, training_input_labels, 100000, vbos=True)
-
-print('\n\n================================================================')
-print('OUTPUT OF [0,0,1,0] : '+str(my_net.run([0,0,1,0])))
-print('OUTPUT OF [0,0,0,1] : '+str(my_net.run([0,0,0,1])))
-print('OUTPUT OF [0,0,0,1] : '+str(my_net.run([0,0,0,1])))
-print('OUTPUT OF [0,1,0,0] : '+str(my_net.run([0,1,0,0])))
-print('OUTPUT OF [1,0,0,0] : '+str(my_net.run([1,0,0,0])))
