@@ -12,7 +12,9 @@
 
 18-6-18 : unit test
 
-soon : do some reseach
+soon : test large networks
+
+after : do some reseach
 
 after : optimise with fancy calculus
 

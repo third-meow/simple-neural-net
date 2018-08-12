@@ -1,0 +1,6 @@
+
+soon : build base of network
+
+after : allow config of network layers and nodes per layer
+
+after : start with more sophistacted inital weights

@@ -2,9 +2,15 @@
 
 A simple python nerual network. For education or something
 
+##Attempt 2
+
+No documentation on attempt 2 yet
 
 
-#notes for anyone trying to understand this
+
+##Attempt 1
+
+###notes for anyone trying to understand this
 
 - each layers 'weight' list is a 2D list
   eg.
